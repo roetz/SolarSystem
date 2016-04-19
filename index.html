@@ -259,7 +259,7 @@
         "posizioneX": -20,	"posizioneY": 0,	"posizioneZ": -10,
         "posX": -11,"posY": 4.5, "posZ":-5, "size": 0.6,
         "pianeta": 0,	"rotazione": 0.001,  "pid":0,
-        "cameraX": -10,  "cameraZ": -5
+        "cameraX": -7,  "cameraZ": -4
       }
     ];
 
@@ -289,12 +289,17 @@
 
     // Crea i pianeti e i phong
     function initPlanets() {
+      var geometryPlanet;
+      var loader = new THREE.TextureLoader();
+      var phongMaterial = new THREE.MeshPhongMaterial({ transparent: true, opacity: 0.4 });
+      phongMaterial.shininess = 20;
+
       for(var i = 0; i < pianeti.length; i++)
       {
-        var geometry = new THREE.SphereGeometry(pianeti[i].raggio, 40, 40);
-        var texture = new THREE.TextureLoader().load( pianeti[i].texture );
+        geometryPlanet = new THREE.SphereGeometry(pianeti[i].raggio, 30, 30);
+        var texture = loader.load(pianeti[i].texture);
         var material = new THREE.MeshBasicMaterial({ map: texture });
-        pianeti[i].pianeta = new THREE.Mesh(geometry, material);
+        pianeti[i].pianeta = new THREE.Mesh(geometryPlanet, material);
         pianeti[i].pianeta.position.set(pianeti[i].posizioneX, 0, pianeti[i].posizioneZ);
         if( i == 6)
           pianeti[i].pianeta.rotation.z += 1.5708;
@@ -305,10 +310,8 @@
        //phnog luce
         if( i != 8)
         {
-          var phongSphere = new THREE.SphereGeometry((pianeti[i].raggio > 1.3 ? pianeti[i].raggio + 0.006 : pianeti[i].raggio + 0.003), 40, 40);
-          var phongMaterial = new THREE.MeshPhongMaterial({ transparent: true, opacity :0.4 });
-          phongMaterial.shininess = 20;
-          pianeti[i].phong = new THREE.Mesh(phongSphere, phongMaterial);
+          geometryPlanet = new THREE.SphereGeometry((pianeti[i].raggio > 1.3 ? pianeti[i].raggio + 0.01 : pianeti[i].raggio + 0.005), 30, 30);
+          pianeti[i].phong = new THREE.Mesh(geometryPlanet, phongMaterial);
           pianeti[i].phong.position.set(pianeti[i].posizioneX, 0, pianeti[i].posizioneZ);
           pianeti[i].phong.pid = pianeti[i].phong.uuid;
           scene.add(pianeti[i].phong);
@@ -339,6 +342,8 @@
           pianeti[i].testoNome = new THREE.Mesh(textGeometry, new THREE.MeshBasicMaterial());
           pianeti[i].testoNome.position.set( pianeti[i].posX, pianeti[i].posY, pianeti[i].posZ);
           pianeti[i].testoNome.visible = false;
+          if( i == 8)
+            pianeti[i].testoNome.visible = true;
           scene.add(pianeti[i].testoNome);
       }
     }
@@ -557,18 +562,14 @@
       inter = 0;
       inter = raycaster.intersectObjects(scene.children);
 
-      for(var i = 0; i < pianeti.length - 1 && inter.length != 0 ; i++){
+      for(var i = 0; i < pianeti.length - 1 && inter.length != 0 ; i++)
         if(pianeti[i].phong.pid == inter[0].object.uuid)
           pianeti[i].testoNome.visible = true;
         else if(MoonPhong.uuid == inter[0].object.uuid)
           pianeti[2].testoNome.visible = true;
         else
           pianeti[i].testoNome.visible = false;
-      }
-      if(pianeti[8].pianeta.pid == inter[0].object.uuid)
-        pianeti[8].testoNome.visible = true;
-      else
-        pianeti[8].testoNome.visible = false;
+
     }
 
     // Kick off animation loop
@@ -612,8 +613,9 @@
    var tmp;
    var dato;
 
-   function drawDes(){
-     for(var  i = 0; i < descrizioni.length; i++){
+   function drawDes() {
+   /*
+     for(var  i = 0; i < descrizioni.length; i++) {
        count = i;
        lista[count] = [];
        for (a in descrizioni[i]) {
@@ -653,7 +655,7 @@
                count++;
          }
        }
-     }
+     }*/
    }
    //drawDes();
 
