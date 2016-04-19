@@ -451,6 +451,39 @@
     // Request animation frame loop function
     var lastRender = 0;
 
+
+    var torusGeometry = new THREE.TorusKnotGeometry( 10, 3, 10, 16 );
+    var torusMaterial = new THREE.MeshLambertMaterial({morphTargets : true});
+    var torusMesh = new THREE.Mesh( torusGeometry, torusMaterial );
+
+    generateMorphTargets( torusMesh, torusGeometry );
+
+    scene.add( torusMesh );
+    torusMesh.position.set(0, 10, -5);
+
+    function generateMorphTargets ( torusMesh, torusGeometry ) {
+
+      var vertices = [], scale;
+      for ( var i = 0; i < torusGeometry.vertices.length; i++ ) {
+
+        vertices.push( torusGeometry.vertices[ i ].clone() );
+
+        scale = 1 + Math.random() * 0.3;
+
+        vertices[ vertices.length - 1 ].x *= scale;
+        vertices[ vertices.length - 1 ].y *= scale;
+        vertices[ vertices.length - 1 ].z *= scale;
+
+      }
+
+      torusGeometry.morphTargets.push( { name: "target1", vertices: vertices } );
+      //torusGeometry.update
+
+    }
+
+    torusMesh.updateMorphTargets();
+		torusMaterial.needsUpdate = true;
+
     function animate(timestamp) {
       lastRender = timestamp;
       // Update VR headset position and apply to camera.
@@ -460,6 +493,14 @@
       animatePlanets();
       animateMoon();
       animateCamera();
+
+      var time = Date.now() * 0.001;
+      if ( torusMesh.morphTargetInfluences ) {
+
+            torusMesh.morphTargetInfluences[ 0 ] = ( 1 + Math.sin( 4 * time ) ) / 2;
+
+           }
+
       // Render the scene through the manager.
       manager.render(scene, renderCamera === false ? moonCamera : camera, timestamp);
       requestAnimationFrame(animate);
@@ -614,9 +655,14 @@
        }
      }
    }
+   //drawDes();
 
-   drawDes();
-    window.addEventListener('keydown', onKey, true);
+
+
+
+
+
+   window.addEventListener('keydown', onKey, true);
 
   </script>
 
