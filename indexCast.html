@@ -105,9 +105,10 @@
     // Setup three.js WebGL renderer. Note: Antialiasing is a big performance hit.
     // Only enable it if you actually need to.
     var renderer = new THREE.WebGLRenderer({antialias: true});
+    renderer.shadowMapEnabled = true;
     renderer.setPixelRatio(window.devicePixelRatio);
-    renderer.shadowMap.enabled = true;
-		renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.shadowMapEnabled	= true;
+		renderer.shadowMapType 		= THREE.PCFSoftShadowMap;
 
     // Append the canvas element created by the renderer to document body element.
     document.body.appendChild(renderer.domElement);
@@ -311,8 +312,7 @@
           var phongMaterial = new THREE.MeshPhongMaterial({ transparent: true, opacity :0.4 });
           phongMaterial.shininess = 20;
           pianeti[i].phong = new THREE.Mesh(phongSphere, phongMaterial);
-          pianeti[2].phong.receiveShadow = true;
-          pianeti[2].phong.castShadow = true;
+          pianeti[i].phong.receiveShadow = true;
           pianeti[i].phong.position.set(pianeti[i].posizioneX, 0, pianeti[i].posizioneZ);
           pianeti[i].phong.pid = pianeti[i].phong.uuid;
           scene.add(pianeti[i].phong);
@@ -348,20 +348,16 @@
     }
 
     function Descrizioni(){
-      for(var i = 0; i < pianeti.length; i++ )
-        var geometry = new THREE.PlaneGeometry();
-        var texture = new THREE.TextureLoader().load( pianeti[i].texture );
-        var material = new THREE.MeshBasicMaterial({ map: texture });
-        pianeti[i].piano = new THREE.Mesh(geometry, material);
-        pianeti[i].piano.position.set(pianeti[i].posizioneX, -2, pianeti[i].posizioneZ);
-        scene.add(pianeti[i].piano);
+      //for(var i = 0; i < )
     }
     // Crea la Luna e il suo "circuito"
     function initMoon(){
       moonCamera = new THREE.PerspectiveCamera( 70, window.innerWidth / window.innerHeight, 0.1, 10000 );
+      moonCamera.lookAt( pianeti[2].pianeta.position );
       scene.add( moonCamera );
 
       moon = new THREE.Mesh( new THREE.SphereGeometry( 0.10, 32, 32 ), new THREE.MeshBasicMaterial( { map: new THREE.TextureLoader().load( 'img/moon.jpg' )} ) );
+
       scene.add( moon );
 
       var moonPath = new THREE.SplineCurve3( [
@@ -384,7 +380,6 @@
       var MoonPhongpid = MoonPhong.uuid;
 
       MoonPhong.castShadow = true;
-      MoonPhong.receiveShadow = true;
       scene.add(MoonPhong);
 
       //var splineObject = new THREE.Line( pathGeometry, pathMaterial );
@@ -395,10 +390,7 @@
     function light(){
       sunLight = new THREE.SpotLight( "#ffe1b6" );
       sunLight.position.set( -20, 0, -10 );
-      sunLight.shadowCameraNear	= 0.01;
-  		sunLight.castShadow		= true;
-  		sunLight.shadowDarkness	= 1;
-      /*
+
       sunLight.castShadow = true;
       sunLight.shadowDarkness = 0.5;
       sunLight.shadowCameraVisible = true;
@@ -407,29 +399,30 @@
       sunLight.shadowCameraNear = 1000;
       sunLight.shadowCameraFar = 4000;
       sunLight.shadowCameraFov = 30;
-      */
       scene.add( sunLight );
     }
+
+    /*
+    var light1 = new THREE.PointLight( "#ffe1b6", 1, 100 );
+    light1.position.set( 0, 2, 0 );
+    scene.add( light1 );
+    */
 
     createHTML();
     initPlanets();
     NomiPianeti();
-    initMoon();
+    //initMoon();
     SaturnRing();
-    light();
+    //light();
 
     function onKey(event) {
       if (event.keyCode == 32)
-        aimingEvent();
-    }
-
-    function aimingEvent() {
-      if(flag)
+        if(flag)
           aming();
-      else {
-        resetCamera = true;
-        flag = true;
-      }
+        else {
+          resetCamera = true;
+          flag = true;
+        }
     }
 
     function aming(){
@@ -507,6 +500,33 @@
       torusGeometry.morphTargets.push( { name: "target1", vertices: vertices } );
     }
 
+    var texture	= THREE.ImageUtils.loadTexture('img/moon.jpg');
+    var sphereGeometry = new THREE.SphereGeometry(0.1, 40, 40);
+    var sphereMaterial = new THREE.MeshPhongMaterial({
+      ambient		: 0x444444,
+      color		: 0x66aa66,
+      shininess	: 0,
+      map: texture
+      //specular	: 0x888888,
+      //shading		: THREE.SmoothShading
+    });
+    var moon = new THREE.Mesh( sphereGeometry, sphereMaterial );
+    moon.castShadow	= true;
+    scene.add (moon);
+    moon.position.set(1.5,0.2,-3);
+
+    var spotLight	= new THREE.SpotLight( 0xFFAA88 );
+		//spotLight.target.position.set( 0, 2, 0 );
+		spotLight.shadowCameraNear	= 0.01;
+		spotLight.castShadow		= true;
+		spotLight.shadowDarkness	= 1;
+		//spotLight.shadowCameraVisible	= true;
+  	// console.dir(spotLight)
+  	// spotLight.shadowMapWidth	= 1024;
+  	// spotLight.shadowMapHeight	= 1024;
+    spotLight.position.set(1.5,0.5,-3);
+		scene.add( spotLight );
+
     function animate(timestamp) {
       lastRender = timestamp;
       // Update VR headset position and apply to camera.
@@ -514,8 +534,14 @@
 
       aim();
       animatePlanets();
-      animateMoon();
+      //animateMoon();
       animateCamera();
+
+      var angle	= Date.now()/1000 * Math.PI;
+	// angle	= Math.PI*2
+			spotLight.position.x	= Math.cos(angle*-0.1)*20;
+			spotLight.position.y	= 10 + Math.sin(angle*0.5)*6;
+			spotLight.position.z	= Math.sin(angle*-0.1)*20;
 
       /* Animate Morph
         var time = Date.now() * 0.001;
@@ -563,6 +589,16 @@
         b--;
         flagCamera = false;
       }
+      /*
+      if(resetCamera && b == 0){
+        curvePath = new THREE.CatmullRomCurve3( [
+          new THREE.Vector3( 0, 0, 0),
+          new THREE.Vector3( 0, 0, 0.001)
+        ] );
+        geometryPath = new THREE.Geometry();
+        geometryPath.vertices = curvePath.getPoints( 10 );
+      }
+      */
     }
     function aim(){
       raycaster.set(camera.position, camera.getWorldDirection());
@@ -573,8 +609,8 @@
       for(var i = 0; i < pianeti.length - 1 && inter.length != 0 ; i++){
         if(pianeti[i].phong.pid == inter[0].object.uuid)
           pianeti[i].testoNome.visible = true;
-        else if(MoonPhong.uuid == inter[0].object.uuid)
-          pianeti[2].testoNome.visible = true;
+        //else if(MoonPhong.uuid == inter[0].object.uuid)
+          //pianeti[2].testoNome.visible = true;
         else
           pianeti[i].testoNome.visible = false;
       }/*
@@ -595,8 +631,16 @@
 
 
    window.addEventListener('keydown', onKey, true);
-   window.addEventListener('dblclick', aimingEvent, true);
 
+   // MODIFICHE
+   /*
+    Tolto animateMoon,
+    Tolto moonPhong da aim,
+    Tolto initMoon,
+    Tolto light(),
+
+    Aggiunto nuovo moon
+  */
   </script>
 
 </html>

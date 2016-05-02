@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>Web VR boilerplate</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0, shrink-to-fit=no">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <link rel="manifest" href="/manifest.json">
+    <style>
+      body {
+        width: 100%;
+        height: 100%;
+        background-color: #000;
+        color: #fff;
+        margin: 0px;
+        padding: 0;
+        overflow: hidden;
+      }
+    </style>
+  </head>
+
+  <body>
+
+  </body>
+
+  <script>
+  /*
+   * Debug parameters.
+   */
+  WebVRConfig = {
+    /**
+     * webvr-polyfill configuration
+     */
+
+    // Forces availability of VR mode.
+    FORCE_ENABLE_VR: true, // Default: false.
+    // Complementary filter coefficient. 0 for accelerometer, 1 for gyro.
+    //K_FILTER: 0.98, // Default: 0.98.
+    // How far into the future to predict during fast motion.
+    //PREDICTION_TIME_S: 0.040, // Default: 0.040 (in seconds).
+    // Flag to disable touch panner. In case you have your own touch controls
+    //TOUCH_PANNER_DISABLED: true, // Default: false.
+    // Enable yaw panning only, disabling roll and pitch. This can be useful for
+    // panoramas with nothing interesting above or below.
+    //YAW_ONLY: true, // Default: false.
+
+    /**
+     * webvr-boilerplate configuration
+     */
+    // Forces distortion in VR mode.
+    //FORCE_DISTORTION: true, // Default: false.
+    // Override the distortion background color.
+    // DISTORTION_BGCOLOR: {x: 1, y: 0, z: 0, w: 1}, // Default: (0,0,0,1).
+    // Prevent distortion from happening.
+    //PREVENT_DISTORTION: true, // Default: false.
+    // Show eye centers for debugging.
+    // SHOW_EYE_CENTERS: true, // Default: false.
+    // Prevent the online DPDB from being fetched.
+    // NO_DPDB_FETCH: true,  // Default: false.
+  };
+  </script>
+
+  <!--
+    A polyfill for Promises. Needed for IE and Edge.
+    -->
+  <script src="node_modules/es6-promise/dist/es6-promise.js"></script>
+
+  <!--
+    three.js 3d library
+    -->
+  <script src="node_modules/three/three.min.js"></script>
+
+  <!--
+    VRControls.js acquires positional information from connected VR devices and applies the transformations to a three.js camera object.
+     -->
+  <script src="node_modules/three/examples/js/controls/VRControls.js"></script>
+
+  <!--
+    VREffect.js handles stereo camera setup and rendering.
+    -->
+  <script src="node_modules/three/examples/js/effects/VREffect.js"></script>
+
+  <!--
+    A polyfill for WebVR using the Device{Motion,Orientation}Event API.
+    -->
+  <script src="node_modules/webvr-polyfill/build/webvr-polyfill.js"></script>
+
+  <!--
+    Helps enter and exit VR mode, provides best practices while in VR.
+    -->
+  <script src="build/webvr-manager.js"></script>
+
+  <script src="node_modules/three/examples/js/renderers/RaytracingRenderer.js"></script>
+
+  <script src="node_modules/three/examples/js/geometries/TextGeometry.js"></script>
+
+  <script src="node_modules/three/examples/js/utils/FontUtils.js"></script>
+
+  <script src="node_modules/three/examples/js/utils/Font/Domine_Regular.js"></script>
+
+  <script>
+    // Setup three.js WebGL renderer. Note: Antialiasing is a big performance hit.
+    // Only enable it if you actually need to.
+    var renderer = new THREE.WebGLRenderer({antialias: true});
+    renderer.setPixelRatio(window.devicePixelRatio);
+
+    // Append the canvas element created by the renderer to document body element.
+    document.body.appendChild(renderer.domElement);
+
+    // Create a three.js scene.
+    var scene = new THREE.Scene();
+
+    // Create a three.js camera.
+    var camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.3, 10000);
+    var cameraEye;
+    var splineCamera;
+    var cameraHelper;
+
+    var pathEye;
+    var geometryEye;
+    var materialEye;
+
+    var flag = true;
+    var flagCamera = false;
+    var resetCamera = false;
+    var curvePath;
+    var geometryPath;
+    var materialPath;
+    var splinePath;
+
+    var a = 499;
+    var b = 0;
+    var renderCamera = true;
+
+    var saturnRing;
+    var spotLight;
+    var lastRender = 0;
+
+    var container;
+    // Apply VR headset positional data to camera.
+    var controls = new THREE.VRControls(camera);
+
+    // Apply VR stereo rendering to renderer.
+    var effect = new THREE.VREffect(renderer);
+    effect.setSize(window.innerWidth, window.innerHeight);
+
+    // Create a VR manager helper to enter and exit VR mode.
+    var params = {
+      hideButton: false, // Default: false.
+      isUndistorted: false // Default: false.
+    };
+    var manager = new WebVRManager(renderer, effect, params);
+
+    // skybox
+    var textureSky = new THREE.TextureLoader().load( "img/skybox.png" );
+
+    var geometrySky = new THREE.SphereGeometry(500, 200);
+    var materialSky = new THREE.MeshBasicMaterial({
+      map: textureSky,
+      side: THREE.BackSide
+    });
+    var skybox = new THREE.Mesh(geometrySky, materialSky);
+    scene.add(skybox);
+
+    // Create 3D objects.
+    var pianeti = [
+    {
+  		"nome": "Mercurio", "texture": 'img/mercury.jpg',
+      "nomePianeta": 0,
+      "raggio": 0.25,
+      "posizioneX": -2, "posizioneY": 0, "posizioneZ": -4.5,
+      "posX": -2.1 ,"posY": 0.6, "posZ": -4,
+  		"pianeta": 0, "rotazione": 0.003, "pid":0,
+      "cameraX": -1.5, "cameraZ": -3.5,
+      "phong": 0
+  	},
+    {
+  		"nome": "Venere", "texture": 'img/venus1.jpg',
+      "nomePianeta": 0,
+      "raggio": 0.5,
+  		"posizioneX": -0.5, "posizioneY": 0, "posizioneZ": -5,
+      "posX": -0.82,"posY": 0.8, "posZ": -4.7,"size": 0.12,
+  		"pianeta": 0, "rotazione": 0.002, "pid":0,
+      "cameraX": -0.2, "cameraZ": -3,
+      "phong": 0
+  	},
+  	{
+  		"nome": "Terra", "texture": 'img/earth1.jpg',
+      "nomePianeta": 0,
+  		"raggio": 0.5,
+      "posizioneX": 1.5, "posizioneY": 0, "posizioneZ": -4,
+      "posX":1.3 ,"posY": 0.8, "posZ":-4,
+  		"pianeta": 0,"rotazione": 0.002, "pid":0,
+      "cameraX": 0.8, "cameraZ": -2.2,
+      "phong": 0
+  	},
+  	{
+  		"nome": "Marte", "texture": 'img/mars1.jpg',
+      "nomePianeta": 0,
+      "raggio": 0.35,
+  		"posizioneX": 3,	"posizioneY": 0,	"posizioneZ": -2,
+      "posX": 2.7,"posY": 0.6, "posZ":-2,
+  		"pianeta": 0,	"rotazione": 0.004, "pid":0,
+      "cameraX": 2, "cameraZ": -1.2,
+      "phong": 0
+  	},
+  	{
+  		"nome": "Giove",	"texture": 'img/jupiter1.jpg',
+      "nomePianeta": 0,
+  		"raggio": 1.7,
+  		"posizioneX": 5.2,	"posizioneY": 0, "posizioneZ": 1,
+      "posX": 5.1,"posY": 2, "posZ": 0.8, "size": 0.15,
+  		"pianeta": 0, "rotazione": 0.003, "pid":0,
+      "cameraX": 0.7, "cameraZ": 0.4,
+      "phong": 0
+  	},
+  	{
+  		"nome": "Saturno","texture": 'img/saturn1.jpg',
+      "nomePianeta": 0,
+  		"raggio": 1.4,
+  		"posizioneX": 2.5,	"posizioneY": 0,	"posizioneZ": 6.5,
+      "posX": 3,"posY": 1.8, "posZ":6.2,"size": 0.2,
+  		"pianeta": 0,	"rotazione": 0.009,  "pid":0,
+      "cameraX": 0.7,  "cameraZ": 2.3,
+      "phong": 0
+  	},
+  	{
+  		"nome": "Urano",	"texture": 'img/uranus1.jpg',
+      "nomePianeta": 0,
+  		"raggio": 0.6,
+  		"posizioneX": -2,	"posizioneY": 0,	"posizioneZ": 3.1,
+      "posX": -1.35,"posY": 0.6, "posZ":2.5,
+  		"pianeta": 0,	"rotazione": 0.01,  "pid":0,
+      "cameraX": -1,  "cameraZ": 1.5,
+      "phong": 0
+  	},
+  	{
+  		"nome": "Nettuno",	"texture": 'img/neptune.jpg',
+      "nomePianeta": 0,
+  		"raggio": 0.6,
+  		"posizioneX": -4.5,	"posizioneY": 0,	"posizioneZ": 2,
+      "posX": -4,"posY": 0.8, "posZ":2.1,
+  		"pianeta": 0,	"rotazione": 0.01,  "pid":0,
+      "cameraX": -2.5,  "cameraZ": 1.0,
+      "phong": 0
+  	},
+    /*{
+  		"nome": "Sole",	"texture": 'img/sun.jpg',
+      "nomePianeta": 0,
+  		"raggio": 7,
+  		"posizioneX": -20,	"posizioneY": 0,	"posizioneZ": -10,
+      "posX": -11,"posY": 4.5, "posZ":-5, "size": 0.6,
+  		"pianeta": 0,	"rotazione": 0.001,  "pid":0,
+      "cameraX": -10,  "cameraZ": -5
+  	},*/
+  	{
+  		"nome": "plutone",	"texture": 'img/pluto.jpg',	"nomePianeta": "2 pianeta",
+  		"raggio": 0.15,
+  		"posizioneX": -5.5,"posizioneY": 0,	"posizioneZ": 0.3,
+  		"pianeta": 0,	"rotazione": 0.01,  "pid":0,
+      "cameraX": 1,  "cameraZ": -3
+  	}
+  ];
+
+  function renderCameraMoon(toggle){
+    if(toggle){
+      renderCamera = renderCamera === false;
+      document.getElementById('renderCamera').value = 'Moon View: ' + (renderCamera? 'OFF' : 'ON');
+    }
+  }
+
+  cameraHelper = new THREE.CameraHelper( camera );
+  scene.add( cameraHelper );
+  cameraHelper.visible = false;
+  var flagAim = true;
+
+  function addHelper(toggle){
+    if(toggle){
+      flagAim = flagAim === false;
+      if(flagAim)
+        cameraHelper.visible = false;
+      else
+          cameraHelper.visible = true;
+      document.getElementById('helper').value = 'Aim: ' + (flagAim? 'OFF' : 'ON');
+    }
+  }
+
+  function createHTML(){
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    var info = document.createElement('div');
+    info.style.position = 'absolute';
+    info.style.top = "10px";
+    info.style.width = "100%";
+    info.style.textAlign = "center";
+    info.innerHTML += "<input id = 'renderCamera' type = 'button' onclick = 'renderCameraMoon(true)' value = 'Moon View : OFF'/ >";
+    info.innerHTML += "<input id = 'helper' type = 'button' onclick = 'addHelper(true)' value = 'Aim : OFF'/ >";
+    container.appendChild(info);
+  }
+  createHTML();
+    function init() {
+
+      splineCamera = new THREE.PerspectiveCamera( 70, window.innerWidth / window.innerHeight, 0.1, 10000 );
+      scene.add( splineCamera );
+
+      cameraEye = new THREE.Mesh( new THREE.SphereGeometry( 0.10, 32, 32 ), new THREE.MeshBasicMaterial( { map: new THREE.TextureLoader().load( 'img/moon.jpg' )} ) );
+      scene.add( cameraEye );
+
+      splineCamera.lookAt( pianeti[2].pianeta.position );
+
+      //cameraHelper = new THREE.CameraHelper( splineCamera );
+      //scene.add( cameraHelper );
+
+      var curve = new THREE.SplineCurve3( [
+        new THREE.Vector3( 2, 0, -5),
+        new THREE.Vector3( 2.1, 0.3, -3.5),
+        new THREE.Vector3( 0.9, 0, -3.1),
+        new THREE.Vector3( 0.7, -0.3, -4.2),
+        new THREE.Vector3( 2, 0, -5)
+      ] );
+
+      geometryEye = new THREE.Geometry();
+      materialEye = new THREE.LineBasicMaterial( { color : 0xff0000 } );
+      geometryEye.vertices = curve.getPoints( 500 );
+
+      var splineObject = new THREE.Line( geometryEye, materialEye );
+      //scene.add( splineObject );
+    }
+
+    //creazione pianeti
+    for(var i = 0; i < pianeti.length - 1; i++)
+    {
+      //pianeti
+      var geometry = new THREE.SphereGeometry(pianeti[i].raggio, 40, 40);
+      var texture = new THREE.TextureLoader().load( pianeti[i].texture );
+      var material = new THREE.MeshLambertMaterial({ map: texture, specularMap: texture, emissive: "#6b6b6b"});
+      pianeti[i].pianeta = new THREE.Mesh(geometry, material);
+      pianeti[i].pianeta.position.set(pianeti[i].posizioneX, 0, pianeti[i].posizioneZ);
+      if( i == 6)
+        pianeti[i].pianeta.rotation.z += 1.5708;
+      if(i == 8)
+        pianeti[i].pianeta.pid = pianeti[i].pianeta.uuid;
+      scene.add(pianeti[i].pianeta);
+
+     //phnog luce
+      if( i != 8)
+      {
+        var phongSphere = new THREE.SphereGeometry(pianeti[i].raggio + 0.008, 40, 40);
+        var phongMaterial = new THREE.MeshPhongMaterial({transparent: true,
+                                                       opacity :0.4,
+                                                       });
+        phongMaterial.shininess = 10;
+        pianeti[i].phong = new THREE.Mesh(phongSphere, phongMaterial);
+        pianeti[i].phong.position.set(pianeti[i].posizioneX, 0, pianeti[i].posizioneZ);
+        pianeti[i].phong.pid = pianeti[i].phong.uuid;
+        //scene.add(pianeti[i].phong);
+     }
+    }
+
+    function SaturnRing(){
+        geometryRing = new THREE.TorusGeometry( 2.2, 0.3, 2.1, 100, 6.3 );
+
+        var textureSaturnRing = new THREE.TextureLoader().load('img/saturnRing.jpg');
+        var materialSaturnRing = new THREE.MeshBasicMaterial( { map: textureSaturnRing} );
+        saturnRing = new THREE.Mesh( geometryRing, materialSaturnRing );
+        saturnRing.position.x = 2.5;
+        saturnRing.position.y = 0;
+        saturnRing.position.z = 6.5;
+        saturnRing.rotation.y = 9.4; // 9 buono
+        saturnRing.rotation.x = 20.3; // 20
+        scene.add( saturnRing );
+    }
+
+    init();
+
+    //Nomi pianeti
+    function NomiPianeti(){
+      for(i = 0; i < pianeti.length - 1; i++){
+
+        var textGeom = new THREE.TextGeometry(
+          pianeti[i].nome, {font: "domine",
+                            size: (pianeti[i].size == null ? 0.1 : pianeti[i].size),
+                            height: 0.01} );
+        var m = new THREE.MeshNormalMaterial();
+        pianeti[i].nomePianeta = new THREE.Mesh(textGeom, m );
+        pianeti[i].nomePianeta.position.set( pianeti[i].posX, pianeti[i].posY, pianeti[i].posZ);
+        scene.add(pianeti[i].nomePianeta);
+      }
+    }
+
+    //luce
+    function light(){
+      spotLight = new THREE.SpotLight( "#e6dfc8" );
+      spotLight.position.set( -20, 0, -10 );
+      spotLight.castShadow = true;
+      spotLight.shadowMapWidth = 1024;
+      spotLight.shadowMapHeight = 1024;
+      spotLight.shadowCameraNear = 500;
+      spotLight.shadowCameraFar = 4000;
+      spotLight.shadowCameraFov = 30;
+      scene.add( spotLight );
+    }
+	var ambient	= new THREE.AmbientLight( 0x404040 );
+		scene.add( ambient );
+
+    SaturnRing();
+    NomiPianeti();
+    light();
+
+    function onKey(event) {
+      if (event.keyCode == 32) {
+        if(flag)
+          aming();
+        else
+          resetCameraPosition();
+        }
+      //test = true;
+    }
+
+    function aming(){
+      var raycaster = new THREE.Raycaster();
+      raycaster.linePrecision = 0.1;
+      flag = false;
+      raycaster.set( camera.position, camera.getWorldDirection() );
+
+      var intersects = raycaster.intersectObjects( scene.children );
+      console.log(intersects);
+
+      for(var i = 0; i < pianeti.length - 2; i++){
+        if(pianeti[i].phong.pid == intersects[0].object.uuid ){
+          flagCamera = true;
+          curvePath = new THREE.CatmullRomCurve3( [
+            new THREE.Vector3( 0, 0, 0),
+            new THREE.Vector3( pianeti[i].cameraX, 0, pianeti[i].cameraZ )
+          ] );
+          geometryPath = new THREE.Geometry();
+          geometryPath.vertices = curvePath.getPoints( 20 );
+
+        }
+        else if(saturnRing.uuid == intersects[0].object.uuid){
+          flagCamera = true;
+            curvePath = new THREE.CatmullRomCurve3( [
+            new THREE.Vector3( 0, 0, 0),
+            new THREE.Vector3( pianeti[5].cameraX, 0, pianeti[5].cameraZ )
+          ] );
+          geometryPath = new THREE.Geometry();
+          geometryPath.vertices = curvePath.getPoints( 20 );
+        }
+          /*else if(pianeti[8].pianeta.pid == intersects[0].object.uuid ){
+            flagCamera = true;
+            curvePath = new THREE.CatmullRomCurve3( [
+            new THREE.Vector3( 0, 0, 0),
+            new THREE.Vector3( pianeti[8].cameraX, 0, pianeti[8].cameraZ )
+          ] );
+          geometryPath = new THREE.Geometry();
+          geometryPath.vertices = curvePath.getPoints( 20 );
+        }*/
+
+        b = 0;
+      }
+      renderer.render( scene,  camera);
+    }
+
+    function resetCameraPosition(){
+      resetCamera = true;
+      flag = true;
+    }
+
+    // Request animation frame loop function
+    var lastRender = 0;
+
+    morph();
+	var torusMesh;
+    function morph(){
+      //var torusGeometry = new THREE.TorusKnotGeometry( 10, 3, 10, 16 );
+      var torusGeometry = new THREE.SphereGeometry( 7, 40, 40  );
+      var torusMaterial = new THREE.MeshLambertMaterial({morphTargets : true, map: new THREE.TextureLoader().load( 'img/sun.jpg' )});
+      torusMesh = new THREE.Mesh( torusGeometry, torusMaterial );
+
+      generateMorphTargets( torusMesh, torusGeometry );
+      scene.add( torusMesh );
+      torusMesh.position.set( -20, 0, -10 );
+
+      torusMesh.updateMorphTargets();
+  		torusMaterial.needsUpdate = true;
+    }
+
+    function generateMorphTargets ( torusMesh, torusGeometry ) {
+
+      var vertices = [], scale;
+      for ( var i = 0; i < torusGeometry.vertices.length; i++ ) {
+        vertices.push( torusGeometry.vertices[ i ].clone() );
+
+        scale = 1 + Math.random() * 0.05;
+
+        vertices[ vertices.length - 1 ].x *= scale;
+        vertices[ vertices.length - 1 ].y *= scale;
+        vertices[ vertices.length - 1 ].z *= scale;
+      }
+      torusGeometry.morphTargets.push( { name: "target1", vertices: vertices } );
+    }
+    var flagMorph = false;
+    function animate(timestamp) {
+
+      lastRender = timestamp;
+      animatePlanets();
+
+      // Update VR headset position and apply to camera.
+      controls.update();
+		var time = Date.now() * 0.001;
+        //( 1 + Math.sin( 4 * time ) ) / 2
+        if ( torusMesh.morphTargetInfluences){
+              torusMesh.morphTargetInfluences[ 0 ] = ( 3 + Math.sin( time ) ) / 2;
+
+              }
+              /*
+         if ( torusMesh.morphTargetInfluences && flagMorph == true){
+              if(torusMesh.morphTargetInfluences[ 0 ] == 0.3)
+              	torusMesh.morphTargetInfluences[ 0 ] = 0.5;
+           	else if (torusMesh.morphTargetInfluences[ 0 ] == 0.5)
+            	torusMesh.morphTargetInfluences[ 0 ] == 0.3;
+         }*/
+
+        //torusMesh.rotation.y += 0.001;
+      animateMoon();
+      animateCamera();
+
+      // Render the scene through the manager.
+      manager.render(scene, renderCamera === false ? splineCamera : camera, timestamp);
+
+      /*
+      if(torusMesh.morphTargetInfluences)
+        torusMesh.morphTargetInfluences[0] = (1+Math.sin(4*time))/2;
+        */
+      requestAnimationFrame(animate);
+    }
+
+    function animatePlanets(){
+      // Apply rotation to planets mesh
+      //i nomi puntano la posizione della camera
+
+      saturnRing.rotation.z += 0.009;
+      for(var i = 0; i < 9 - 1; i++){
+        pianeti[i].nomePianeta.lookAt(camera.position);
+      	if(i != 6)
+      		pianeti[i].pianeta.rotation.y += pianeti[i].rotazione;
+          else
+              pianeti[i].pianeta.rotation.x += pianeti[i].rotazione;
+      }
+    }
+    function animateMoon(){
+      if(a > 0){
+        a--;
+        cameraEye.position.set( geometryEye.vertices[a].x, geometryEye.vertices[a].y, geometryEye.vertices[a].z );
+        splineCamera.position.set( geometryEye.vertices[a].x, geometryEye.vertices[a].y, geometryEye.vertices[a].z );
+        splineCamera.lookAt(pianeti[2].pianeta.position);
+      }
+      else {
+        a = 499;
+      }
+      cameraEye.rotation.y += 0.01;
+
+    }
+    function animateCamera(){
+      if(b < 20 && flagCamera == true && flag == false){
+        b++;
+        camera.position.set( geometryPath.vertices[b].x, geometryPath.vertices[b].y, geometryPath.vertices[b].z );
+        resetCamera = false;
+      }
+
+      if(b > 0 && resetCamera == true && flag == true){
+        camera.position.set( geometryPath.vertices[b].x, geometryPath.vertices[b].y, geometryPath.vertices[b].z );
+        b--;
+        flagCamera = false;
+      }
+      /*
+      if(resetCamera && b == 0){
+        curvePath = new THREE.CatmullRomCurve3( [
+          new THREE.Vector3( 0, 0, 0),
+          new THREE.Vector3( 0, 0, 0.001)
+        ] );
+        geometryPath = new THREE.Geometry();
+        geometryPath.vertices = curvePath.getPoints( 10 );
+      }
+      */
+    }
+
+    // Kick off animation loop
+    animate(performance ? performance.now() : Date.now());
+
+    function onWindowResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      effect.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    /*
+    camera.position.z = 5;
+    var torusGeometry = new THREE.TorusKnotGeometry(0.1, 3, 10, 16);
+    var torusMesh = new THREE.Mesh( torusGeometry );
+    //torusMesh.material = chooseFromHash(gui, mesh, geometry);
+    scene.add( torusMesh );
+    torusMesh.position.set(0,0,-5);
+    torusMesh.material.morphTargets = true;
+    var vertices = [], scale;
+    for(var i=0; i < torusGeometry.vertices.length; i++){
+      vertices.push(torusGeometry.vertices[i].clone());
+      scale = 1 + Math.random()*0.3;
+      vertices[vertices.length-1].x *= scale;
+      vertices[vertices.length-1].y *= scale;
+      vertices[vertices.length-1].z *= scale;
+    }
+    geometry.morphTargets.push({name:"target1", vertices:vertices});
+    //geometry.update;
+    */
+
+
+    window.addEventListener('keydown', onKey, true);
+
+  </script>
+
+</html>

@@ -105,9 +105,8 @@
     // Setup three.js WebGL renderer. Note: Antialiasing is a big performance hit.
     // Only enable it if you actually need to.
     var renderer = new THREE.WebGLRenderer({antialias: true});
+    renderer.shadowMapEnabled = true;
     renderer.setPixelRatio(window.devicePixelRatio);
-    renderer.shadowMap.enabled = true;
-		renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
     // Append the canvas element created by the renderer to document body element.
     document.body.appendChild(renderer.domElement);
@@ -311,8 +310,7 @@
           var phongMaterial = new THREE.MeshPhongMaterial({ transparent: true, opacity :0.4 });
           phongMaterial.shininess = 20;
           pianeti[i].phong = new THREE.Mesh(phongSphere, phongMaterial);
-          pianeti[2].phong.receiveShadow = true;
-          pianeti[2].phong.castShadow = true;
+          pianeti[i].phong.reciveShadow = true;
           pianeti[i].phong.position.set(pianeti[i].posizioneX, 0, pianeti[i].posizioneZ);
           pianeti[i].phong.pid = pianeti[i].phong.uuid;
           scene.add(pianeti[i].phong);
@@ -348,20 +346,16 @@
     }
 
     function Descrizioni(){
-      for(var i = 0; i < pianeti.length; i++ )
-        var geometry = new THREE.PlaneGeometry();
-        var texture = new THREE.TextureLoader().load( pianeti[i].texture );
-        var material = new THREE.MeshBasicMaterial({ map: texture });
-        pianeti[i].piano = new THREE.Mesh(geometry, material);
-        pianeti[i].piano.position.set(pianeti[i].posizioneX, -2, pianeti[i].posizioneZ);
-        scene.add(pianeti[i].piano);
+      //for(var i = 0; i < )
     }
     // Crea la Luna e il suo "circuito"
     function initMoon(){
       moonCamera = new THREE.PerspectiveCamera( 70, window.innerWidth / window.innerHeight, 0.1, 10000 );
+      moonCamera.lookAt( pianeti[2].pianeta.position );
       scene.add( moonCamera );
 
       moon = new THREE.Mesh( new THREE.SphereGeometry( 0.10, 32, 32 ), new THREE.MeshBasicMaterial( { map: new THREE.TextureLoader().load( 'img/moon.jpg' )} ) );
+
       scene.add( moon );
 
       var moonPath = new THREE.SplineCurve3( [
@@ -377,39 +371,43 @@
       pathGeometry.vertices = moonPath.getPoints( 1000 );
 
       //phong luna
-      var phongMoon = new THREE.SphereGeometry(0.10 + 0.0008, 40, 40);
-      var phongMoonMat = new THREE.MeshPhongMaterial({ transparent: true, opacity :0.4 });
-      phongMoonMat.shininess = 20;
-      MoonPhong = new THREE.Mesh(phongMoon, phongMoonMat);
-      var MoonPhongpid = MoonPhong.uuid;
-
+      var geoMoon = new THREE.SphereGeometry(0.10 + 0.0008, 40, 40);
+      var matMoon = new THREE.MeshPhongMaterial({ transparent: true, opacity :0.4 });
+      matMoon.shininess = 20;
+      MoonPhong = new THREE.Mesh(geoMoon, matMoon);
       MoonPhong.castShadow = true;
-      MoonPhong.receiveShadow = true;
+      var MoonPhongpid = MoonPhong.uuid;
       scene.add(MoonPhong);
-
-      //var splineObject = new THREE.Line( pathGeometry, pathMaterial );
-      //scene.add( splineObject );
     }
 
     // luce posizionata all'interno del sole
     function light(){
       sunLight = new THREE.SpotLight( "#ffe1b6" );
       sunLight.position.set( -20, 0, -10 );
-      sunLight.shadowCameraNear	= 0.01;
-  		sunLight.castShadow		= true;
-  		sunLight.shadowDarkness	= 1;
-      /*
+
       sunLight.castShadow = true;
       sunLight.shadowDarkness = 0.5;
-      sunLight.shadowCameraVisible = true;
-      sunLight.shadowMapWidth = 1024;
-      sunLight.shadowMapHeight = 1024;
-      sunLight.shadowCameraNear = 1000;
-      sunLight.shadowCameraFar = 4000;
-      sunLight.shadowCameraFov = 30;
-      */
+      //sunLight.shadowCameraVisible = true;
+      //sunLight.shadowMapWidth = 1024;
+      //sunLight.shadowMapHeight = 1024;
+      sunLight.shadowCameraNear = 0.01;
+      sunLight.shadowCameraFar = 5000;
+      //sunLight.shadowCameraFov = 30;
       scene.add( sunLight );
     }
+
+/*
+    var spotLight	= new THREE.SpotLight( "#2323ca" );
+		//spotLight.target.position.set( 0, 2, 0 );
+    spotLight.Intensity = 1;
+		spotLight.shadowCameraNear	= 0.01;
+		spotLight.castShadow		= true;
+		spotLight.shadowDarkness	= 1;
+		//spotLight.shadowCameraVisible	= true;
+	// console.dir(spotLight)
+	// spotLight.shadowMapWidth	= 1024;
+	// spotLight.shadowMapHeight	= 1024;
+		scene.add( spotLight );*/
 
     createHTML();
     initPlanets();
@@ -431,6 +429,8 @@
         flag = true;
       }
     }
+
+
 
     function aming(){
       var ray = new THREE.Raycaster();
@@ -510,7 +510,13 @@
     function animate(timestamp) {
       lastRender = timestamp;
       // Update VR headset position and apply to camera.
-      controls.update();
+        controls.update();
+/*
+        var angle	= Date.now()/1000 * Math.PI;
+        angle	= Math.PI*2
+        spotLight.position.x	= Math.cos(angle*-0.1)*20;
+        spotLight.position.y	= 10 + Math.sin(angle*0.5)*6;
+        spotLight.position.z	= Math.sin(angle*-0.1)*20;*/
 
       aim();
       animatePlanets();
@@ -563,6 +569,16 @@
         b--;
         flagCamera = false;
       }
+      /*
+      if(resetCamera && b == 0){
+        curvePath = new THREE.CatmullRomCurve3( [
+          new THREE.Vector3( 0, 0, 0),
+          new THREE.Vector3( 0, 0, 0.001)
+        ] );
+        geometryPath = new THREE.Geometry();
+        geometryPath.vertices = curvePath.getPoints( 10 );
+      }
+      */
     }
     function aim(){
       raycaster.set(camera.position, camera.getWorldDirection());
@@ -595,7 +611,7 @@
 
 
    window.addEventListener('keydown', onKey, true);
-   window.addEventListener('dblclick', aimingEvent, true);
+   window.addEventListener('click', aimingEvent, true);
 
   </script>
 
